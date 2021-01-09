@@ -11,6 +11,9 @@ https://mybunnyhug.org/fileformats/pgm/
 This software depends on .NET Core 5
 and has been tested on Linux.
 
+The `jq` command is handy for working with JSON
+but is not required.
+
 ## Building and Running
 
 The software is built and run
@@ -18,4 +21,5 @@ in place,
 in one step,
 as shown in the example command below.
 
-    dotnet run ./SFM-DMX/DMX\ From\ Mars\ 1.pgm
+    dotnet run ./SFM-DMX/DMX\ From\ Mars\ 1.pgm | jq .
+

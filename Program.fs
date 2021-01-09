@@ -1,4 +1,5 @@
 // Thanks to https://mybunnyhug.org/fileformats/pgm/ for the format description.
+open Newtonsoft.Json
 open System.IO
 
 type PgmHeader = {
@@ -175,23 +176,48 @@ let readSlider (rd: BinaryReader) (_: int) =
 
 let NSliders = 2
 
-[<EntryPoint>]
-let main argv =
-    match argv with
-    | [|pgmFileName|] ->
-    use rd = new BinaryReader(File.Open(pgmFileName, FileMode.Open))
-    let hdr = {
+let readHeader (rd: BinaryReader) =
+    {
         FileSize = rd.ReadUInt16()
         Padding1 = rd.ReadUInt16()
         FileType = rd.ReadBytes(FileTypeSize) |> asciiString
         Padding2 = rd.ReadUInt32()
     }
-    printfn "%A" hdr
+
+type Footer = {
+    Padding: byte []
+}
+
+let FooterSize = 17
+
+let readFooter (rd: BinaryReader) =
+    {
+        Padding = rd.ReadBytes(FooterSize)
+    }
+
+type ProgramFile = {
+    Header: PgmHeader
+    Pads: Pad []            // 64
+    Midi: Midi
+    Sliders: Slider []   // 2
+    Footer: Footer
+}
+[<EntryPoint>]
+let main argv =
+    match argv with
+    | [|pgmFileName|] ->
+    use rd = new BinaryReader(File.Open(pgmFileName, FileMode.Open))
+    let hdr = (readHeader rd)
     let pads = Array.init NPads (readPad rd)
-    pads |> Array.iteri (fun i x -> printfn "pad%02d: %A" i x)
     let midi = readMidi rd
-    printfn "%A" midi
     let sliders = Array.init NSliders (readSlider rd)
-    printfn "sliders:\n%A" sliders
+    let footer = (readFooter rd)
+    JsonConvert.SerializeObject {
+        Header = hdr
+        Pads = pads
+        Midi = midi
+        Sliders = sliders
+        Footer = footer
+    } |> printf "%s"
     0
     | _ -> 1
