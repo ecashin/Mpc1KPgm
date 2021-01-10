@@ -4,10 +4,13 @@ open System.IO
 
 type Header = {
     FileSize: uint16
-    Padding1: uint16
+    Padding1: byte []
     FileType: string
-    Padding2: uint32
+    Padding2: byte []
 }
+
+let HeaderPadding1Size = 2
+let HeaderPadding2Size = 4
 
 // byte-count sizes
 let FileTypeSize = 16
@@ -57,7 +60,7 @@ type Pad = {
     Sample1: Sample
     Sample2: Sample
     Sample3: Sample
-    Padding1: uint16
+    Padding1: byte []
     VoiceOverlap: byte
     MuteGroup: byte
     Padding2: byte
@@ -65,35 +68,36 @@ type Pad = {
     Attack: byte
     Decay: byte
     DecayMode: byte
-    Padding3: uint16
+    Padding3: byte []
     VelocityToLevel: byte
-    Padding4a: uint32
-    Padding4b: byte
+    Padding4: byte []
     Filter1Type: byte
     Filter1Freq: byte
     Filter1Res: byte
-    Padding5: uint32
+    Padding5: byte []
     Filter1VeloToFreq: byte
     Filter2Type: byte
     Filter2Frequency: byte
     Filter2Res: byte
-    Padding6: uint32
+    Padding6: byte []
     Filter2VeloToFreq: byte
-    Padding7a: uint32
-    Padding7b: uint32
-    Padding7c: uint32
-    Padding7d: uint16
+    Padding7: byte []
     MixerLevel: byte
     MixerPan: byte
     Output: byte
     FXSend: byte
     FXSendLevel: byte
     FilterAttenuation: byte
-    Padding8a: uint64
-    Padding8b: uint32
-    Padding8c: uint16
-    Padding8d: byte
+    Padding8: byte []
 }
+
+let PadPadding1Size = 2
+let PadPadding3Size = 2
+let PadPadding4Size = 5
+let PadPadding5Size = 4
+let PadPadding6Size = 4
+let PadPadding7Size = 14
+let PadPadding8Size = 15
 
 let readPad (rd: BinaryReader) (_: int) =
     {
@@ -101,7 +105,7 @@ let readPad (rd: BinaryReader) (_: int) =
         Sample1 = (readSample rd)
         Sample2 = (readSample rd)
         Sample3 = (readSample rd)
-        Padding1 = rd.ReadUInt16()
+        Padding1 = rd.ReadBytes(PadPadding1Size)
         VoiceOverlap = rd.ReadByte()
         MuteGroup = rd.ReadByte()
         Padding2 = rd.ReadByte()
@@ -109,34 +113,27 @@ let readPad (rd: BinaryReader) (_: int) =
         Attack = rd.ReadByte()
         Decay = rd.ReadByte()
         DecayMode = rd.ReadByte()
-        Padding3 = rd.ReadUInt16()
+        Padding3 = rd.ReadBytes(PadPadding3Size)
         VelocityToLevel = rd.ReadByte()
-        Padding4a = rd.ReadUInt32()
-        Padding4b = rd.ReadByte()
+        Padding4 = rd.ReadBytes(PadPadding4Size)
         Filter1Type = rd.ReadByte()
         Filter1Freq = rd.ReadByte()
         Filter1Res = rd.ReadByte()
-        Padding5 = rd.ReadUInt32()
+        Padding5 = rd.ReadBytes(PadPadding5Size)
         Filter1VeloToFreq = rd.ReadByte()
         Filter2Type = rd.ReadByte()
         Filter2Frequency = rd.ReadByte()
         Filter2Res = rd.ReadByte()
-        Padding6 = rd.ReadUInt32()
+        Padding6 = rd.ReadBytes(PadPadding6Size)
         Filter2VeloToFreq = rd.ReadByte()
-        Padding7a = rd.ReadUInt32()
-        Padding7b = rd.ReadUInt32()
-        Padding7c = rd.ReadUInt32()
-        Padding7d = rd.ReadUInt16()
+        Padding7 = rd.ReadBytes(PadPadding7Size)
         MixerLevel = rd.ReadByte()
         MixerPan = rd.ReadByte()
         Output = rd.ReadByte()
         FXSend = rd.ReadByte()
         FXSendLevel = rd.ReadByte()
         FilterAttenuation = rd.ReadByte()
-        Padding8a = rd.ReadUInt64()
-        Padding8b = rd.ReadUInt32()
-        Padding8c = rd.ReadUInt16()
-        Padding8d = rd.ReadByte()
+        Padding8 = rd.ReadBytes(PadPadding8Size)
     }
 
 let writePad (wr: BinaryWriter) (pad: Pad) =
@@ -154,8 +151,7 @@ let writePad (wr: BinaryWriter) (pad: Pad) =
     wr.Write(pad.DecayMode)
     wr.Write(pad.Padding3)
     wr.Write(pad.VelocityToLevel)
-    wr.Write(pad.Padding4a)
-    wr.Write(pad.Padding4b)
+    wr.Write(pad.Padding4)
     wr.Write(pad.Filter1Type)
     wr.Write(pad.Filter1Freq)
     wr.Write(pad.Filter1Res)
@@ -166,20 +162,14 @@ let writePad (wr: BinaryWriter) (pad: Pad) =
     wr.Write(pad.Filter2Res)
     wr.Write(pad.Padding6)
     wr.Write(pad.Filter2VeloToFreq)
-    wr.Write(pad.Padding7a)
-    wr.Write(pad.Padding7b)
-    wr.Write(pad.Padding7c)
-    wr.Write(pad.Padding7d)
+    wr.Write(pad.Padding7)
     wr.Write(pad.MixerLevel)
     wr.Write(pad.MixerPan)
     wr.Write(pad.Output)
     wr.Write(pad.FXSend)
     wr.Write(pad.FXSendLevel)
     wr.Write(pad.FilterAttenuation)
-    wr.Write(pad.Padding8a)
-    wr.Write(pad.Padding8b)
-    wr.Write(pad.Padding8c)
-    wr.Write(pad.Padding8d)    
+    wr.Write(pad.Padding8)
 
 let NPads = 64
 
@@ -254,9 +244,9 @@ let NSliders = 2
 let readHeader (rd: BinaryReader) =
     {
         FileSize = rd.ReadUInt16()
-        Padding1 = rd.ReadUInt16()
+        Padding1 = rd.ReadBytes(HeaderPadding1Size)
         FileType = rd.ReadBytes(FileTypeSize) |> asciiString
-        Padding2 = rd.ReadUInt32()
+        Padding2 = rd.ReadBytes(HeaderPadding2Size)
     }
 
 let writeHeader (wr: BinaryWriter) (hdr: Header) =
