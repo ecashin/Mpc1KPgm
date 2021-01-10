@@ -2,7 +2,7 @@
 open Newtonsoft.Json
 open System.IO
 
-type PgmHeader = {
+type Header = {
     FileSize: uint16
     Padding1: uint16
     FileType: string
@@ -13,7 +13,7 @@ type PgmHeader = {
 let FileTypeSize = 16
 let SampleNameSize = 16
 
-type SampleData = {
+type Sample = {
     SampleName: string
     Padding1: byte
     Level: byte
@@ -27,7 +27,10 @@ type SampleData = {
 let asciiString (bytes: byte []) =
     System.Text.Encoding.ASCII.GetString bytes
 
-let sampleData (rd: BinaryReader) =
+let asciiBytes (s: string) =
+    System.Text.Encoding.ASCII.GetBytes s
+
+let readSample (rd: BinaryReader) =
     {
         SampleName = rd.ReadBytes(SampleNameSize) |> asciiString
         Padding1 = rd.ReadByte()
@@ -39,11 +42,21 @@ let sampleData (rd: BinaryReader) =
         Padding2 = rd.ReadByte()
     }
 
+let writeSample (wr: BinaryWriter) (smp: Sample) =
+    wr.Write(smp.SampleName |> asciiBytes)
+    wr.Write(smp.Padding1)
+    wr.Write(smp.Level)
+    wr.Write(smp.RangeLower)
+    wr.Write(smp.RangeUpper)
+    wr.Write(smp.Tuning)
+    wr.Write(smp.PlayMode)
+    wr.Write(smp.Padding2)
+
 type Pad = {
-    Sample0: SampleData
-    Sample1: SampleData
-    Sample2: SampleData
-    Sample3: SampleData
+    Sample0: Sample
+    Sample1: Sample
+    Sample2: Sample
+    Sample3: Sample
     Padding1: uint16
     VoiceOverlap: byte
     MuteGroup: byte
@@ -84,10 +97,10 @@ type Pad = {
 
 let readPad (rd: BinaryReader) (_: int) =
     {
-        Sample0 = (sampleData rd)
-        Sample1 = (sampleData rd)
-        Sample2 = (sampleData rd)
-        Sample3 = (sampleData rd)
+        Sample0 = (readSample rd)
+        Sample1 = (readSample rd)
+        Sample2 = (readSample rd)
+        Sample3 = (readSample rd)
         Padding1 = rd.ReadUInt16()
         VoiceOverlap = rd.ReadByte()
         MuteGroup = rd.ReadByte()
@@ -126,6 +139,48 @@ let readPad (rd: BinaryReader) (_: int) =
         Padding8d = rd.ReadByte()
     }
 
+let writePad (wr: BinaryWriter) (pad: Pad) =
+    writeSample wr pad.Sample0
+    writeSample wr pad.Sample1
+    writeSample wr pad.Sample2
+    writeSample wr pad.Sample3
+    wr.Write(pad.Padding1)
+    wr.Write(pad.VoiceOverlap)
+    wr.Write(pad.MuteGroup)
+    wr.Write(pad.Padding2)
+    wr.Write(pad.Unknown)
+    wr.Write(pad.Attack)
+    wr.Write(pad.Decay)
+    wr.Write(pad.DecayMode)
+    wr.Write(pad.Padding3)
+    wr.Write(pad.VelocityToLevel)
+    wr.Write(pad.Padding4a)
+    wr.Write(pad.Padding4b)
+    wr.Write(pad.Filter1Type)
+    wr.Write(pad.Filter1Freq)
+    wr.Write(pad.Filter1Res)
+    wr.Write(pad.Padding5)
+    wr.Write(pad.Filter1VeloToFreq)
+    wr.Write(pad.Filter2Type)
+    wr.Write(pad.Filter2Frequency)
+    wr.Write(pad.Filter2Res)
+    wr.Write(pad.Padding6)
+    wr.Write(pad.Filter2VeloToFreq)
+    wr.Write(pad.Padding7a)
+    wr.Write(pad.Padding7b)
+    wr.Write(pad.Padding7c)
+    wr.Write(pad.Padding7d)
+    wr.Write(pad.MixerLevel)
+    wr.Write(pad.MixerPan)
+    wr.Write(pad.Output)
+    wr.Write(pad.FXSend)
+    wr.Write(pad.FXSendLevel)
+    wr.Write(pad.FilterAttenuation)
+    wr.Write(pad.Padding8a)
+    wr.Write(pad.Padding8b)
+    wr.Write(pad.Padding8c)
+    wr.Write(pad.Padding8d)    
+
 let NPads = 64
 
 type Midi = {
@@ -140,6 +195,11 @@ let readMidi (rd: BinaryReader) =
         MidiNotePadValues = rd.ReadByte()
         MidiProgramChange = rd.ReadByte()
     }
+
+let writeMidi (wr: BinaryWriter) (midi: Midi) =
+    wr.Write(midi.PadMidiNoteValues)
+    wr.Write(midi.MidiNotePadValues)
+    wr.Write(midi.MidiProgramChange)
 
 type Slider = {
     SliderPad: byte
@@ -174,6 +234,21 @@ let readSlider (rd: BinaryReader) (_: int) =
         SliderDecayHigh = rd.ReadByte()
     }
 
+let writeSlider (wr: BinaryWriter) (slider: Slider) =
+    wr.Write(slider.SliderPad)
+    wr.Write(slider.Unknown)
+    wr.Write(slider.SliderParameter)
+    wr.Write(slider.SliderTuneLow)
+    wr.Write(slider.SliderTuneHigh)
+    wr.Write(slider.SliderFilterLow)
+    wr.Write(slider.SliderFilterHigh)
+    wr.Write(slider.SliderLayerLow)
+    wr.Write(slider.SliderLayerHigh)
+    wr.Write(slider.SliderAttackLow)
+    wr.Write(slider.SliderAttackHigh)
+    wr.Write(slider.SliderDecayLow)
+    wr.Write(slider.SliderDecayHigh)
+
 let NSliders = 2
 
 let readHeader (rd: BinaryReader) =
@@ -183,6 +258,13 @@ let readHeader (rd: BinaryReader) =
         FileType = rd.ReadBytes(FileTypeSize) |> asciiString
         Padding2 = rd.ReadUInt32()
     }
+
+let writeHeader (wr: BinaryWriter) (hdr: Header) =
+    wr.Write(hdr.FileSize)
+    wr.Write(hdr.Padding1)
+    assert (hdr.FileType.Length = (hdr.FileType |> asciiBytes).Length)
+    wr.Write(hdr.FileType |> asciiBytes)
+    wr.Write(hdr.Padding2)
 
 type Footer = {
     Padding: byte []
@@ -195,29 +277,59 @@ let readFooter (rd: BinaryReader) =
         Padding = rd.ReadBytes(FooterSize)
     }
 
+let writeFooter (wr: BinaryWriter) (footer: Footer) =
+    wr.Write(footer.Padding)
+
 type ProgramFile = {
-    Header: PgmHeader
+    Header: Header
     Pads: Pad []            // 64
     Midi: Midi
     Sliders: Slider []   // 2
     Footer: Footer
+    Extra: byte []
 }
-[<EntryPoint>]
-let main argv =
-    match argv with
-    | [|pgmFileName|] ->
+
+let ProgramFileAllFieldsSize = 0x2946
+
+let writePgm (pgm: ProgramFile) (outFileName: string) =
+    use wr = new BinaryWriter(File.Open(outFileName, FileMode.Create))
+    writeHeader wr pgm.Header
+    pgm.Pads |> Array.iter (fun pad -> writePad wr pad)
+    writeMidi wr pgm.Midi
+    pgm.Sliders |> Array.iter (fun slider -> writeSlider wr slider)
+    writeFooter wr pgm.Footer
+    wr.Write(pgm.Extra)
+
+let parsePgmFile (pgmFileName: string) =
     use rd = new BinaryReader(File.Open(pgmFileName, FileMode.Open))
     let hdr = (readHeader rd)
     let pads = Array.init NPads (readPad rd)
     let midi = readMidi rd
     let sliders = Array.init NSliders (readSlider rd)
     let footer = (readFooter rd)
-    JsonConvert.SerializeObject {
+    let extraSize = (int hdr.FileSize) - ProgramFileAllFieldsSize
+    let extra =
+        if extraSize > 0 then
+            rd.ReadBytes(extraSize)
+        else
+            Array.empty<byte>
+    {
         Header = hdr
         Pads = pads
         Midi = midi
         Sliders = sliders
         Footer = footer
-    } |> printf "%s"
-    0
+        Extra = extra
+    }
+
+[<EntryPoint>]
+let main argv =
+    match argv with
+    | [|pgmFileName; outPgmFileName|] ->
+        let pgm = parsePgmFile pgmFileName
+        writePgm pgm outPgmFileName
+        0
+    | [|pgmFileName|] ->
+        parsePgmFile pgmFileName |> JsonConvert.SerializeObject |> printf "%s"
+        0
     | _ -> 1
